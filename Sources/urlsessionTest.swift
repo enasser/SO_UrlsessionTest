@@ -6,62 +6,66 @@ import XCTest
 
 class urlsessionTest {
 
-    let session: URLSession
-    let sessionConfiguration: URLSessionConfiguration
-    
-    var completionHandler : ((Data?, URLResponse?, Error?) -> Void)?
-    
+    private let session: URLSession
+    private let sessionConfiguration: URLSessionConfiguration
+
+    open var completionHandler : ((Data?, URLResponse?, Error?) -> Void)?
+
     init() {
+
         sessionConfiguration = URLSessionConfiguration.default
-        
         sessionConfiguration.requestCachePolicy = NSURLRequest.CachePolicy.reloadIgnoringLocalCacheData
         sessionConfiguration.timeoutIntervalForRequest = 10
         sessionConfiguration.timeoutIntervalForResource = 20
-        
-        self.session = URLSession(configuration: sessionConfiguration,
-                                  delegate: nil,
-                                  delegateQueue: OperationQueue())
+
+        session = URLSession(configuration: sessionConfiguration,
+                             delegate: nil,
+                             delegateQueue: OperationQueue())
     }
-    
-    func testPost(username: String, password: String, url: String) {
-        
-        let postData: [String:Any] = [
-            "query" : "CREATE (n:Person { props } ) RETURN n",
-            "params" : [
-                "props" : [
-                    "position" : "Developer",
-                    "name" : "Michael",
-                    "awesome" : true,
-                    "children" : 3
-                ]
-            ]
-        ]
-        
-        let url = URL(string: url)!
+
+    enum LocalError: Error {
+        case cannotConvertUTF8ToData
+        case cannotConvertStringToURL
+        case completionHandlerMustBeSetBeforeCallingPost
+    }
+
+
+    func testPost(username: String, password: String, url: String, postData: [String:Any]) throws {
+
+        guard let url = URL(string: url) else {
+            throw LocalError.cannotConvertStringToURL
+        }
+
+        guard let completionHandler = completionHandler else {
+            throw LocalError.completionHandlerMustBeSetBeforeCallingPost
+        }
+
         var httpRequest = URLRequest(url: url)
-        let userAuthString: String = self.basicAuthString(username, password: password)
+        httpRequest.httpMethod = "POST"
         httpRequest.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Accept")
-        httpRequest.setValue(userAuthString, forHTTPHeaderField: "Authorization")
         httpRequest.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
 
-        httpRequest.httpMethod = "POST"
-        let transformedJSONData: Data = try! JSONSerialization.data(withJSONObject: postData, options: [])
+        let userAuthString: String = try basicAuthString(username, password: password)
+        httpRequest.setValue(userAuthString, forHTTPHeaderField: "Authorization")
+
+        let transformedJSONData: Data = try JSONSerialization.data(withJSONObject: postData, options: [])
         httpRequest.httpBody = transformedJSONData
-        
-        let task : URLSessionDataTask = session.dataTask(with: httpRequest, completionHandler:self.completionHandler!)
-        
+
+        let task : URLSessionDataTask = session.dataTask(with: httpRequest, completionHandler:completionHandler)
+
         task.resume()
-        
+
     }
-    
-    func basicAuthString(_ username: String, password: String) -> String {
-        
+
+    func basicAuthString(_ username: String, password: String) throws -> String {
+
         let loginString = "\(username):\(password)"
-        let loginData: Data = loginString.data(using: .utf8)!
+        guard let loginData: Data = loginString.data(using: .utf8) else {
+            throw LocalError.cannotConvertUTF8ToData
+        }
         let base64LoginString = loginData.base64EncodedString(options: [])
         let authString = "Basic \(base64LoginString)"
-        
+
         return authString
     }
 }
-
