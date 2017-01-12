@@ -7,16 +7,16 @@ import XCTest
 class urlsessionTest {
 
     let session: URLSession
+    let sessionConfiguration: URLSessionConfiguration
     
     var completionHandler : ((Data?, URLResponse?, Error?) -> Void)?
     
     init() {
-        let sessionConfiguration = URLSessionConfiguration.default
+        sessionConfiguration = URLSessionConfiguration.default
         
         sessionConfiguration.requestCachePolicy = NSURLRequest.CachePolicy.reloadIgnoringLocalCacheData
         sessionConfiguration.timeoutIntervalForRequest = 10
         sessionConfiguration.timeoutIntervalForResource = 20
-        sessionConfiguration.httpAdditionalHeaders = ["Accept": "application/json", "Content-Type": "application/json; charset=UTF-8"]
         
         self.session = URLSession(configuration: sessionConfiguration,
                                   delegate: nil,
@@ -39,10 +39,10 @@ class urlsessionTest {
         
         let url = URL(string: url)!
         var httpRequest = URLRequest(url: url)
-        httpRequest.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
-        httpRequest.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Accept")
         let userAuthString: String = self.basicAuthString(username, password: password)
+        httpRequest.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Accept")
         httpRequest.setValue(userAuthString, forHTTPHeaderField: "Authorization")
+        httpRequest.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
 
         httpRequest.httpMethod = "POST"
         let transformedJSONData: Data = try! JSONSerialization.data(withJSONObject: postData, options: [])
